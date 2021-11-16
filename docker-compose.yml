@@ -1,0 +1,47 @@
+version: '3.3'
+
+services:
+  mq_server:
+    build: .
+    ports:
+      - "9443:9443"
+      - "1414:1414"
+    volumes:
+      - qmdata:/mnt/mqm
+    networks:
+      - ibmmq
+
+  mq_exporter:
+    image: mq-metric-prometheus:5.2.3
+    ports:
+      - "9157:9157"
+    environment:
+      IBMMQ_CONNECTION_QUEUEMANAGER: "QM1"
+      IBMMQ_CONNECTION_CONNNAME: "mq_server(1414)"
+      IBMMQ_CONNECTION_CHANNEL: "SYSTEM.DEF.SVRCONN"
+      IBMMQ_CONNECTION_USER: "newrelic"
+      IBMMQ_CONNECTION_PASSWORD: "passw0rd"
+      IBMMQ_GLOBAL_CONFIGURATIONFILE: ""
+    networks:
+      - ibmmq
+    depends_on:
+      - start_3party_dependencies
+
+  start_3party_dependencies:
+    image: dadarek/wait-for-dependencies
+    environment:
+      - SLEEP_LENGTH=5
+      - TIMEOUT_LENGTH=120
+    networks:
+      - ibmmq
+    depends_on:
+      - mq_server
+    command: mq_server:1414
+
+
+networks:
+  ibmmq:
+    driver: bridge
+
+volumes:
+  qmdata:
